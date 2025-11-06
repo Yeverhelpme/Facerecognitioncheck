@@ -1,0 +1,13 @@
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虚拟环境
+venv/
+env/
+.env
+
+# 日志或临时文件
+*.log
+*.tmp

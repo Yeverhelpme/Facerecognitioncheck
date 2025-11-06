@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人脸识别系统（支持多人脸识别）</title>
+    <style>
+        /* 样式保持不变 */
+        body {
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 10px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        .card {
+            flex: 1;
+            min-width: 400px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #2c3e50;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        input[type="file"] {
+            padding: 8px;
+            border: 1px dashed #bdc3c7;
+            border-radius: 4px;
+            width: 100%;
+            background-color: #f9f9f9;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            min-height: 60px;
+            line-height: 1.6;
+        }
+        .success {
+            background-color: #eafaf1;
+            border: 1px solid #a2d9a2;
+            color: #27ae60;
+        }
+        .error {
+            background-color: #fdedeb;
+            border: 1px solid #f5b7b1;
+            color: #e74c3c;
+        }
+        .image-preview {
+            margin-top: 10px;
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 4px;
+            display: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .file-list {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px dashed #bdc3c7;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .file-item {
+            margin: 5px 0;
+            padding: 5px;
+            background-color: white;
+            border-radius: 2px;
+            font-size: 14px;
+        }
+        .batch-result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .marked-image {
+            margin-top: 10px;
+            max-width: 100%;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .hint {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        .upload-progress {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+            display: none;
+        }
+        .face-item {
+            margin: 8px 0;
+            padding: 8px;
+            border-left: 3px solid #3498db;
+            background-color: #f1f9ff;
+        }
+        .checkin-success {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .checkin-fail {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>人脸识别系统（支持多人脸识别+自动签到）</h1>
+        <p>后端服务地址：<span id="server-url">http://127.0.0.1:5000</span></p>
+    </div>
+
+    <div class="container" style="margin-top: 30px;">
+        <!-- 人脸录入区域 -->
+        <div class="card">
+            <h2>1. 人脸录入（多图）</h2>
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="id">用户ID（唯一标识）：</label>
+                    <input type="number" id="id" name="id" placeholder="例如：1001" required>
+                    <div class="hint">用于唯一标识用户，建议使用数字</div>
+                </div>
+                <div class="form-group">
+                    <label for="name">姓名：</label>
+                    <input type="text" id="name" name="name" placeholder="请输入姓名" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-images">选择人脸图片（可多选）：</label>
+                    <input type="file" id="register-images" name="images" accept="image/*" multiple required>
+                    <div class="file-list" id="register-file-list">未选择文件（按住Ctrl键可多选）</div>
+                    <div class="hint">图片将以 "姓名_ID_序号" 格式保存</div>
+                </div>
+                <div class="upload-progress" id="register-progress">
+                    <div id="progress-text">准备上传...</div>
+                </div>
+                <button type="submit">批量录入</button>
+            </form>
+            <div id="register-result" class="result"></div>
+        </div>
+
+        <!-- 多图片识别区域 -->
+        <div class="card">
+            <h2>2. 多图片识别</h2>
+            <form id="recognize-form">
+                <div class="form-group">
+                    <label for="recognize-images">选择待识别图片（可多选）：</label>
+                    <input type="file" id="recognize-images" name="images" accept="image/*" multiple required>
+                    <div class="file-list" id="recognize-file-list">未选择文件（按住Ctrl键可多选）</div>
+                    <div class="hint">识别后自动签到，并显示标注图片</div>
+                </div>
+                <button type="submit">批量识别</button>
+            </form>
+            <div id="batch-result" class="batch-result"></div>
+        </div>
+
+        <!-- 签到统计区域 -->
+        <div class="card">
+            <h2>3. 签到统计</h2>
+            <div class="form-group">
+                <button id="refresh-checkin">刷新签到统计</button>
+                <button id="reset-checkin" style="margin-top: 10px; background-color: #e74c3c;">
+                    重置签到记录
+                </button>
+            </div>
+            <div class="result" id="checkin-stats">
+                <div>总人数：<span id="total-users">0</span></div>
+                <div>已签到：<span id="checked-count">0</span> 人（<span id="checked-rate">0%</span>）</div>
+                <div style="margin-top: 10px;">
+                    <strong>已签到人员：</strong>
+                    <div id="checked-list" style="margin-top: 5px;">--</div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <strong>未签到人员：</strong>
+                    <div id="unchecked-list" style="margin-top: 5px;">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = "http://127.0.0.1:5000";  // 后端地址，需根据实际修改
+        let tempImagePaths = [];
+
+        // --------------------------
+        // 人脸录入逻辑（保持不变）
+        // --------------------------
+        document.getElementById('register-images').addEventListener('change', function(e) {
+            const fileListDiv = document.getElementById('register-file-list');
+            const files = e.target.files;
+
+            if (files.length === 0) {
+                fileListDiv.innerHTML = "未选择文件（按住Ctrl键可多选）";
+                return;
+            }
+
+            let html = `<strong>已选择 ${files.length} 个文件：</strong><br>`;
+            for (let i = 0; i < files.length; i++) {
+                html += `<div class="file-item">${i+1}. ${files[i].name}</div>`;
+            }
+            fileListDiv.innerHTML = html;
+        });
+
+        document.getElementById('register-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const resultDiv = document.getElementById('register-result');
+            const progressDiv = document.getElementById('register-progress');
+            const progressText = document.getElementById('progress-text');
+
+            resultDiv.innerHTML = "";
+            resultDiv.className = "result";
+            progressDiv.style.display = "block";
+            progressText.textContent = "准备上传...";
+
+            const userId = document.getElementById('id').value;
+            const userName = document.getElementById('name').value;
+            const files = document.getElementById('register-images').files;
+
+            if (!userId || !userName || files.length === 0) {
+                progressDiv.style.display = "none";
+                resultDiv.className = "result error";
+                resultDiv.innerHTML = "❌ 请填写ID、姓名并选择图片";
+                return;
+            }
+
+            try {
+                let successCount = 0;
+                let failCount = 0;
+                let resultsHtml = `<strong>批量录入结果（共 ${files.length} 张）：</strong><br>`;
+
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    progressText.textContent = `正在上传第 ${i+1}/${files.length} 张...`;
+
+                    const formData = new FormData();
+                    formData.append('id', userId);
+                    formData.append('name', userName);
+                    formData.append('image', file);
+
+                    const response = await fetch(`${BASE_URL}/register`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        successCount++;
+                        resultsHtml += `
+                            <div style="margin:5px 0;padding:5px;border-radius:4px;background:#eafaf1;">
+                                ${i+1}. ${file.name}：录入成功（${data.save_path}，当前样本数：${data.sample_count}）
+                            </div>
+                        `;
+                    } else {
+                        failCount++;
+                        resultsHtml += `
+                            <div style="margin:5px 0;padding:5px;border-radius:4px;background:#fdedeb;">
+                                ${i+1}. ${file.name}：录入失败（${data.msg}）
+                            </div>
+                        `;
+                    }
+                }
+
+                progressDiv.style.display = "none";
+                resultDiv.className = successCount > 0 ? "result success" : "result error";
+                resultDiv.innerHTML = `
+                    ${successCount > 0 ? '✅ 部分或全部录入成功' : '❌ 全部录入失败'}<br>
+                    成功：${successCount} 张，失败：${failCount} 张<br>
+                    ${resultsHtml}
+                `;
+
+            } catch (error) {
+                progressDiv.style.display = "none";
+                resultDiv.className = "result error";
+                resultDiv.innerHTML = `❌ 请求失败：${error.message}`;
+            }
+        });
+
+        // --------------------------
+        // 多图片识别逻辑（核心修改）
+        // --------------------------
+        document.getElementById('recognize-images').addEventListener('change', function(e) {
+            const fileListDiv = document.getElementById('recognize-file-list');
+            const files = e.target.files;
+
+            if (files.length === 0) {
+                fileListDiv.innerHTML = "未选择文件（按住Ctrl键可多选）";
+                return;
+            }
+
+            let html = `<strong>已选择 ${files.length} 个文件：</strong><br>`;
+            for (let i = 0; i < files.length; i++) {
+                html += `<div class="file-item">${i+1}. ${files[i].name}</div>`;
+            }
+            fileListDiv.innerHTML = html;
+        });
+
+        document.getElementById('recognize-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const resultDiv = document.getElementById('batch-result');
+            resultDiv.innerHTML = '<div style="text-align:center;padding:20px;">正在批量识别，请稍候...</div>';
+
+            // 清理临时图片
+            if (tempImagePaths.length > 0) {
+                for (const path of tempImagePaths) {
+                    try {
+                        await fetch(`${BASE_URL}/clean_temp`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ path })
+                        });
+                    } catch (err) {
+                        console.log(`清理临时文件失败：${err.message}`);
+                    }
+                }
+                tempImagePaths = [];
+            }
+
+            const files = document.getElementById('recognize-images').files;
+            if (files.length === 0) {
+                resultDiv.innerHTML = '<div class="error">请选择至少一张图片</div>';
+                return;
+            }
+
+            let resultsHtml = `<strong>批量识别结果（共 ${files.length} 张）：</strong><br><br>`;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const formData = new FormData();
+                formData.append('image', file);
+
+                try {
+                    const response = await fetch(`${BASE_URL}/recognize`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+
+                    if (data.success && data.save_path) {
+                        tempImagePaths.push(data.save_path);
+                    }
+
+                    if (data.success) {
+                        let faceResultsHtml = '';
+                        const faces = Array.isArray(data.results) ? data.results : [];
+
+                        // 生成人脸详情列表（新增签到状态展示）
+                        if (faces.length > 0) {
+                            faces.forEach((face, idx) => {
+                                const similarity = Number(face.similarity) || 0;
+                                const name = face.name || '未知';
+                                const bbox = face.bbox || [0, 0, 0, 0];
+                                // 签到状态样式区分（成功/失败）
+                                const checkinClass = face.checkin_msg === "签到成功" ? "checkin-success" : "checkin-fail";
+
+                                faceResultsHtml += `
+                                    <div class="face-item">
+                                        <div><strong>人脸 ${idx+1}：</strong>${name}</div>
+                                        <div>相似度：${similarity.toFixed(4)}</div>
+                                        <div>位置：(${bbox[0]}, ${bbox[1]}) - (${bbox[2]}, ${bbox[3]})</div>
+                                        <div>签到状态：<span class="${checkinClass}">${face.checkin_msg || '未签到'}</span></div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            faceResultsHtml = '<div style="color:#7f8c8d;">未识别到有效人脸</div>';
+                        }
+
+                        // 前端绘制标注图片
+                        let imageHtml = '';
+                        if (data.original_image_base64) {
+                            const canvasId = `marked-canvas-${i}`;
+                            imageHtml = `
+                                <div style="margin-top:10px;">
+                                    <strong>标注图片（前端绘制）：</strong><br>
+                                    <canvas id="${canvasId}" class="marked-image"></canvas>
+                                </div>
+                            `;
+
+                            setTimeout(() => {
+                                const img = new Image();
+                                img.src = data.original_image_base64;
+                                img.onload = function() {
+                                    const canvas = document.getElementById(canvasId);
+                                    const ctx = canvas.getContext('2d');
+                                    canvas.width = img.width;
+                                    canvas.height = img.height;
+                                    ctx.drawImage(img, 0, 0);
+
+                                    // 绘制人脸框和信息（含签到状态）
+                                    faces.forEach(face => {
+                                        const { name, similarity, bbox, checkin_msg } = face;
+                                        const [x1, y1, x2, y2] = bbox || [0, 0, 0, 0];
+                                        // 人脸框（蓝色）
+                                        ctx.strokeStyle = 'rgb(0, 0, 255)';
+                                        ctx.lineWidth = 2;
+                                        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                                        // 姓名（绿色）
+                                        ctx.fillStyle = 'rgb(0, 255, 0)';
+                                        ctx.font = '18px Microsoft YaHei';
+                                        ctx.fillText(`姓名：${name}`, x1, Math.max(0, y1 - 40));
+                                        // 相似度（红色）
+                                        ctx.fillStyle = 'rgb(255, 0, 0)';
+                                        ctx.font = '16px Microsoft YaHei';
+                                        ctx.fillText(`相似度：${Number(similarity).toFixed(4)}`, x1, Math.max(0, y1 - 15));
+                                        // 签到状态（成功绿色/失败红色）
+                                        ctx.fillStyle = checkin_msg === "签到成功" ? 'rgb(0, 255, 0)' : 'rgb(255, 0, 0)';
+                                        ctx.font = '16px Microsoft YaHei';
+                                        ctx.fillText(`签到：${checkin_msg || '未签到'}`, x1, Math.max(0, y1 - 65));
+                                    });
+                                };
+                            }, 0);
+                        } else {
+                            imageHtml = '<div style="color:#e74c3c;">⚠️ 原图获取失败，无法绘制</div>';
+                        }
+
+                        // 拼接结果
+                        resultsHtml += `
+                            <div style="margin:15px 0;padding:15px;border-radius:6px;background:#f8f9fa;border:1px solid #e9ecef;">
+                                <div><strong>${i+1}. 文件名：${file.name}</strong></div>
+                                <div>识别时间：${data.formatted_time || '未知时间'}</div>
+                                <div>状态：${data.status || '识别成功'}（${data.message || '无额外信息'}）</div>
+                                <div style="margin-top:10px;"><strong>人脸详情：</strong></div>
+                                ${faceResultsHtml}
+                                ${imageHtml}
+                            </div>
+                        `;
+
+                        // 识别成功后自动刷新签到统计（核心联动）
+                        document.getElementById('refresh-checkin').click();
+
+                    } else {
+                        resultsHtml += `
+                            <div class="error" style="margin:15px 0;padding:15px;border-radius:6px;">
+                                <div><strong>${i+1}. 文件名：${file.name}</strong></div>
+                                <div>错误：${data.msg || '未知错误'}</div>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    resultsHtml += `
+                        <div class="error" style="margin:15px 0;padding:15px;border-radius:6px;">
+                            <div><strong>${i+1}. 文件名：${file.name}</strong></div>
+                            <div>请求失败：${error.message}</div>
+                        </div>
+                    `;
+                }
+            }
+            resultDiv.innerHTML = resultsHtml;
+        });
+
+        // --------------------------
+        // 签到统计逻辑（优化展示）
+        // --------------------------
+        // 页面加载时自动刷新签到统计
+        window.onload = function() {
+            document.getElementById('refresh-checkin').click();
+        };
+
+        // 刷新签到统计
+        document.getElementById('refresh-checkin').addEventListener('click', async function() {
+            try {
+                const response = await fetch(`${BASE_URL}/checkin/stats`, { method: 'GET' });
+                const data = await response.json();
+                if (data.success) {
+                    // 更新总人数和已签到人数
+                    const total = data.total || 0;
+                    const checkedCount = data.checked_count || 0;
+                    document.getElementById('total-users').textContent = total;
+                    document.getElementById('checked-count').textContent = checkedCount;
+
+                    // 计算签到率
+                    const rate = total > 0 ? ((checkedCount / total) * 100).toFixed(1) : '0';
+                    document.getElementById('checked-rate').textContent = `${rate}%`;
+
+                    // 显示已签到人员（带时间）
+                    const checkedList = data.checked_list.map(user =>
+                        `${user.name}（${user.time}）`
+                    ).join('<br>') || '无';
+                    document.getElementById('checked-list').innerHTML = checkedList;
+
+                    // 显示未签到人员
+                    const uncheckedList = data.unchecked_list.map(user =>
+                        user.name
+                    ).join('<br>') || '无';
+                    document.getElementById('unchecked-list').innerHTML = uncheckedList;
+                } else {
+                    alert('获取签到统计失败：' + data.msg);
+                }
+            } catch (error) {
+                alert('请求失败：' + error.message);
+            }
+        });
+
+        // 重置签到记录
+        document.getElementById('reset-checkin').addEventListener('click', async function() {
+            if (confirm('确定要重置所有签到记录吗？')) {
+                try {
+                    const response = await fetch(`${BASE_URL}/checkin/reset`, { method: 'POST' });
+                    const data = await response.json();
+                    alert(data.msg || '重置成功');
+                    document.getElementById('refresh-checkin').click(); // 重置后刷新
+                } catch (error) {
+                    alert('重置失败：' + error.message);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
