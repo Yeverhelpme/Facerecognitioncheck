@@ -11,3 +11,5 @@ env/
 # 日志或临时文件
 *.log
 *.tmp
+# 排除整个 model 文件夹
+face_recognition_project/models/
